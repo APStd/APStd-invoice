@@ -1,0 +1,16 @@
+{
+  "name": "APStd Antrean Pesanan",
+  "short_name": "APStd",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1e293b",
+  "description": "Sistem Cek Antrean Pesanan Online APStd Printing",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/fortawesome/Font-Awesome/6.x/svgs/solid/print.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
