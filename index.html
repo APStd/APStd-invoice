@@ -92,8 +92,8 @@
                 <div class="flex items-center gap-3">
                     <i class="fa-solid fa-shield-halved text-amber-600 text-lg"></i>
                     <div>
-                        <p class="font-bold">Mode Admin Aktif</p>
-                        <p class="text-amber-700">Anda masuk sebagai pengelola APStd. Kelola status antrean di bawah ini.</p>
+                        <p class="font-bold">Mode Admin Aktif (Terhubung ke Google Sheets)</p>
+                        <p class="text-amber-700">Perubahan data akan langsung tersimpan ke Database Order APStd.</p>
                     </div>
                 </div>
                 <button onclick="logoutAdmin()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition">
@@ -109,7 +109,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div>
                         <label class="block font-medium text-slate-600 mb-1">No. Invoice</label>
-                        <input type="text" id="newInvoiceId" value="INV-50" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold uppercase">
+                        <input type="text" id="newInvoiceId" placeholder="INV-50" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold uppercase">
                     </div>
                     <div>
                         <label class="block font-medium text-slate-600 mb-1">Nama Pelanggan</label>
@@ -133,8 +133,8 @@
                         </select>
                     </div>
                 </div>
-                <button onclick="addNewOrder()" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition shadow-md flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-cloud-arrow-up"></i> Simpan & Tambahkan ke Antrean
+                <button onclick="addNewOrder()" id="addBtn" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition shadow-md flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Simpan & Kirim ke Google Sheets
                 </button>
             </div>
 
@@ -144,8 +144,8 @@
                     <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
                         <i class="fa-solid fa-list text-blue-600"></i> Daftar Seluruh Antrean Aktif
                     </h3>
-                    <button onclick="loadOrders()" class="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1">
-                        <i class="fa-solid fa-rotate"></i> Muat Ulang
+                    <button onclick="fetchOrders()" class="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1">
+                        <i class="fa-solid fa-rotate"></i> Muat Ulang Data
                     </button>
                 </div>
                 <div class="overflow-x-auto">
@@ -160,7 +160,7 @@
                             </tr>
                         </thead>
                         <tbody id="adminOrderTableBody" class="divide-y divide-slate-100">
-                            <!-- Diisi otomatis oleh JavaScript -->
+                            <tr><td colspan="5" class="p-4 text-center text-slate-400">Memuat data dari Google Sheets...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -170,7 +170,7 @@
 
     <!-- Modal Login Admin -->
     <div id="loginModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-scaleUp">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
                     <i class="fa-solid fa-lock text-blue-600"></i> Autentikasi Admin APStd
@@ -200,23 +200,30 @@
         &copy; 2026 APStd Studio. All rights reserved.
     </footer>
 
-    <!-- JavaScript Aplikasi -->
+    <!-- JavaScript Aplikasi Terhubung Google Sheets -->
     <script>
-        // Data Dummy awal sinkronisasi (bisa diganti URL Google Apps Script Webhook nanti)
-        let ordersData = [
-            { id: "INV-48", name: "Andi", details: "Sticker 2 Lembar", phone: "08123456789", status: "Sedang Diproses" },
-            { id: "INV-49", name: "Budi", details: "Custom Calendar", phone: "08571234567", status: "Masih Proses" }
-        ];
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwqh0efg1auG6pxcPa1W_166KgiiRyO1MQgKYYnLKBP-IYkvsO-kRgQAt78qWvxoXJ2cA/exec";
+        let ordersData = [];
 
-        // Load data tersimpan jika ada di LocalStorage browser
-        if(localStorage.getItem('apstd_orders')) {
-            try {
-                ordersData = JSON.parse(localStorage.getItem('apstd_orders'));
-            } catch(e) {}
-        }
+        // Ambil data dari Google Sheets saat halaman dimuat
+        window.onload = function() {
+            fetchOrders(true);
+        };
 
-        function saveToStorage() {
-            localStorage.setItem('apstd_orders', JSON.stringify(ordersData));
+        function fetchOrders(isSilent = false) {
+            if(!isSilent) console.log("Mengambil data dari Google Sheets...");
+            fetch(WEB_APP_URL)
+                .then(res => res.json())
+                .then(data => {
+                    ordersData = data;
+                    // Jika admin portal sedang terbuka, update tabelnya
+                    if(!document.getElementById('adminPortal').classList.contains('hidden')) {
+                        renderAdminTable();
+                    }
+                })
+                .catch(err => {
+                    console.error("Gagal memuat data:", err);
+                });
         }
 
         // Fitur Cari oleh Customer
@@ -230,7 +237,7 @@
                 return;
             }
 
-            const found = ordersData.filter(o => o.id.toUpperCase().includes(keyword) || o.phone.includes(keyword));
+            const found = ordersData.filter(o => String(o.id).toUpperCase().includes(keyword) || String(o.phone).includes(keyword));
             container.classList.remove('hidden');
 
             if(found.length === 0) {
@@ -300,7 +307,7 @@
                 document.getElementById('customerPortal').classList.add('hidden');
                 document.getElementById('adminPortal').classList.remove('hidden');
                 document.getElementById('adminBtnText').innerText = 'Panel Admin Aktif';
-                loadOrders();
+                fetchOrders();
             } else {
                 document.getElementById('loginError').classList.remove('hidden');
             }
@@ -312,7 +319,7 @@
             document.getElementById('adminBtnText').innerText = 'Login Admin';
         }
 
-        // Tambah Order Baru (Admin)
+        // Tambah Order Baru ke Google Sheets
         function addNewOrder() {
             const id = document.getElementById('newInvoiceId').value.trim();
             const name = document.getElementById('newCustomerName').value.trim();
@@ -325,19 +332,35 @@
                 return;
             }
 
-            ordersData.unshift({ id, name, details, phone, status });
-            saveToStorage();
-            loadOrders();
-            alert('Pesanan baru berhasil ditambahkan!');
+            const btn = document.getElementById('addBtn');
+            btn.innerText = 'Menyimpan ke Google Sheets...';
 
-            // Reset form
-            document.getElementById('newCustomerName').value = '';
-            document.getElementById('newOrderDetails').value = '';
-            document.getElementById('newCustomerPhone').value = '';
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'add', id, name, details, phone, status })
+            })
+            .then(res => res.json())
+            .then(res => {
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Simpan & Kirim ke Google Sheets';
+                if(res.status === 'success') {
+                    alert('Pesanan berhasil ditambahkan & masuk ke Google Sheets!');
+                    document.getElementById('newInvoiceId').value = '';
+                    document.getElementById('newCustomerName').value = '';
+                    document.getElementById('newOrderDetails').value = '';
+                    document.getElementById('newCustomerPhone').value = '';
+                    fetchOrders();
+                } else {
+                    alert('Gagal menyimpan: ' + res.message);
+                }
+            })
+            .catch(err => {
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Simpan & Kirim ke Google Sheets';
+                alert('Terjadi kesalahan koneksi.');
+            });
         }
 
         // Render Tabel Admin
-        function loadOrders() {
+        function renderAdminTable() {
             const tbody = document.getElementById('adminOrderTableBody');
             let html = '';
 
@@ -353,7 +376,7 @@
                         <td class="p-3 font-medium text-slate-800">${order.name}</td>
                         <td class="p-3 text-slate-600">${order.details}</td>
                         <td class="p-3">
-                            <select onchange="updateOrderStatus(${index}, this.value)" class="px-2.5 py-1 bg-slate-100 border border-slate-300 rounded-lg text-xs font-semibold">
+                            <select onchange="updateOrderStatus('${order.id}', this.value)" class="px-2.5 py-1 bg-slate-100 border border-slate-300 rounded-lg text-xs font-semibold">
                                 <option value="Sedang Diproses" ${order.status === 'Sedang Diproses' ? 'selected' : ''}>Sedang Diproses</option>
                                 <option value="Masih Proses" ${order.status === 'Masih Proses' ? 'selected' : ''}>Masih Proses</option>
                                 <option value="Siap Diambil" ${order.status === 'Siap Diambil' ? 'selected' : ''}>Siap Diambil</option>
@@ -361,7 +384,7 @@
                             </select>
                         </td>
                         <td class="p-3 text-center">
-                            <button onclick="deleteOrder(${index})" class="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition" title="Hapus Pesanan">
+                            <button onclick="deleteOrder('${order.id}')" class="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition" title="Hapus Pesanan">
                                 <i class="fa-solid fa-trash-can text-xs"></i>
                             </button>
                         </td>
@@ -371,16 +394,31 @@
             tbody.innerHTML = html;
         }
 
-        function updateOrderStatus(index, newStatus) {
-            ordersData[index].status = newStatus;
-            saveToStorage();
+        function updateOrderStatus(id, newStatus) {
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'update', id: id, status: newStatus })
+            })
+            .then(res => res.json())
+            .then(res => {
+                if(res.status === 'success') {
+                    fetchOrders(true);
+                }
+            });
         }
 
-        function deleteOrder(index) {
+        function deleteOrder(id) {
             if(confirm('Yakin ingin menghapus antrean pesanan ini?')) {
-                ordersData.splice(index, 1);
-                saveToStorage();
-                loadOrders();
+                fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'delete', id: id })
+                })
+                .then(res => res.json())
+                .then(res => {
+                    if(res.status === 'success') {
+                        fetchOrders();
+                    }
+                });
             }
         }
     </script>
