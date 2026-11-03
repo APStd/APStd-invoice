@@ -8,7 +8,7 @@
   "description": "Sistem Cek Antrean Pesanan Online APStd Printing",
   "icons": [
     {
-      "src": "https://raw.githubusercontent.com/fortawesome/Font-Awesome/6.x/svgs/solid/print.svg",
+      "src": "logo apstd.svg",
       "sizes": "512x512",
       "type": "image/svg+xml"
     }
